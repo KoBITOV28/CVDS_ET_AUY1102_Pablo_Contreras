@@ -1,0 +1,99 @@
+# .github/workflows/ci-docker.yml
+
+name: CI/CD Pipeline - Docker y Pruebas
+
+
+on:
+  push:
+    
+    branches:
+      - develop
+  pull_request:
+    
+    branches:
+      - develop
+      
+ 
+env:
+  DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_USERNAME }} 
+  DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_TOKEN }}       
+  IMAGE_NAME: cvds-et-pablo-contreras                 
+
+jobs:
+  build-and-test:
+    name: Build, Test, y Publicacion Docker
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout del Codigo
+        uses: actions/checkout@v4
+      
+      # ---------------------------------------------------------------------
+      # 1. AUTENTICACION CON DOCKER HUB
+      # ---------------------------------------------------------------------
+      - name: Login a Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ env.DOCKER_HUB_USERNAME }}
+          password: ${{ env.DOCKER_HUB_TOKEN }}
+      
+      # ---------------------------------------------------------------------
+      # 2. CONSTRUCCION Y PRUEBAS (CI)
+      # ---------------------------------------------------------------------
+      - name: Build y Pruebas de la Imagen Docker
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          # El 'push: false' hace que solo se ejecute el BUILD, incluyendo la Etapa 1 del Dockerfile (donde estan tus pruebas)
+          push: false 
+          tags: ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+
+      # ---------------------------------------------------------------------
+      # 3. PUBLICACION DE LA IMAGEN (CD - Solo si el paso 2 fue exitoso)
+      # ---------------------------------------------------------------------
+      - name: Publicar la Imagen en Docker Hub
+        # La condicion 'if: success()' asegura el Despliegue Continuo (CD) solo despues de un CI exitoso
+        if: success() 
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+         
+          push: true
+        
+          tags: |
+            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} 
+            ${{ env.DOCKER_HUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            
+
+            # ... (Bloque del job 'build-and-test' anterior)
+
+  sonarcloud-analysis:
+    name: Analisis de Calidad con SonarCloud
+    runs-on: ubuntu-latest
+    needs: build-and-test # Este job SOLO se ejecuta si el build y las pruebas Docker fueron exitosos
+
+    steps:
+      - name: Checkout del Codigo
+        uses: actions/checkout@v4
+        with:
+          # Es necesario hacer un fetch completo del historial (profundidad 0) para el analisis completo
+          fetch-depth: 0 
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11' # Asegúrate que sea la versión que usas
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@v2.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Token de GitHub, provisto automáticamente
+          SONAR_TOKEN: ${{ afa42d6a24240eb78b4be66a0051198fb1c70ea2 }} # El secreto que acabas de crear
+        with:
+          args: >
+            -Dsonar.organization=https://sonarcloud.io/organizations/kobitov28/projects
+            -Dsonar.projectKey=kobitov28
+            -Dsonar.sources=.
+            -Dsonar.python.file.suffixes=.py
