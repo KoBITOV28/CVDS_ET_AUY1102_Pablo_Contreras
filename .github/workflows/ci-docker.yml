@@ -120,7 +120,7 @@ jobs:
       - name: Snyk Test (Dependencias Python)
         uses: snyk/actions/python@master
         env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }} # El secreto de GitHub que acabas de crear
+          SNYK_TOKEN: ${{f6b16f56-754d-4d90-97fe-46f4850a3172}} # El secreto de GitHub que acabas de crear
         with:
           # Escanea dependencias de requirements.txt
           command: test
@@ -132,7 +132,7 @@ jobs:
       - name: Snyk Test (Imagen Docker)
         uses: snyk/actions/docker@master
         env:
-          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+          SNYK_TOKEN: ${{f6b16f56-754d-4d90-97fe-46f4850a3172}}
         with:
           # Esta es la imagen base que usaste en la ETAPA 2 (PRODUCTION) de tu Dockerfile
           image: python:3.11-alpine 
