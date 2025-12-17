@@ -68,7 +68,7 @@ jobs:
             
 
             # ... (Bloque del job 'build-and-test' anterior)
-
+##Sonar =======================================================================================================================
   sonarcloud-analysis:
     name: Analisis de Calidad con SonarCloud
     runs-on: ubuntu-latest
@@ -97,3 +97,43 @@ jobs:
             -Dsonar.projectKey=kobitov28
             -Dsonar.sources=.
             -Dsonar.python.file.suffixes=.py
+
+
+##Snyk=======================================================================================================
+# .github/workflows/ci-docker.yml
+
+# ... (Después del job 'sonarcloud-analysis')
+
+  snyk-security-scan:
+    name: Escaneo de Vulnerabilidades con Snyk
+    runs-on: ubuntu-latest
+    # Este job puede correr en paralelo, pero lo mantenemos con 'needs' para orden:
+    needs: [build-and-test] 
+
+    steps:
+      - name: Checkout del Codigo
+        uses: actions/checkout@v4
+
+      # ---------------------------------------------------------------------
+      # A. Escaneo de Dependencias (requirements.txt)
+      # ---------------------------------------------------------------------
+      - name: Snyk Test (Dependencias Python)
+        uses: snyk/actions/python@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }} # El secreto de GitHub que acabas de crear
+        with:
+          # Escanea dependencias de requirements.txt
+          command: test
+          args: --file=requirements.txt
+
+      # ---------------------------------------------------------------------
+      # B. Escaneo de la Imagen Docker Base
+      # ---------------------------------------------------------------------
+      - name: Snyk Test (Imagen Docker)
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          # Esta es la imagen base que usaste en la ETAPA 2 (PRODUCTION) de tu Dockerfile
+          image: python:3.11-alpine 
+          args: --file=Dockerfile
